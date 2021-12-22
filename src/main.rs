@@ -1,15 +1,15 @@
 use mlua::{Lua, LuaOptions};
 
 fn main() {
-    
-    let script = "notafunction()";
+    let script = std::env::args().nth(1).unwrap();
+
     let stdlib = mlua::StdLib::ALL_SAFE | mlua::StdLib::DEBUG;
     let opts = LuaOptions::new().catch_rust_panics(true);
     let mut lua = unsafe { Lua::unsafe_new_with(stdlib, opts) };
     println!("Without thread:");
-    run_without_thread(&mut lua, script);
+    run_without_thread(&mut lua, &script);
     println!("With thread:");
-    run_with_thread(&mut lua, script);
+    run_with_thread(&mut lua, &script);
 }
 
 fn run_without_thread(lua: &mut Lua, script: &str) {

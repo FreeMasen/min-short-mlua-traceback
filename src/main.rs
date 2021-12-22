@@ -1,25 +1,36 @@
 use mlua::{Lua, LuaOptions};
+
 fn main() {
+    
+    let script = "notafunction()";
     let stdlib = mlua::StdLib::ALL_SAFE | mlua::StdLib::DEBUG;
     let opts = LuaOptions::new().catch_rust_panics(true);
-    let l = unsafe { Lua::unsafe_new_with(stdlib, opts) };
-    let user_threads_table = l.create_table().unwrap();
-    l.set_named_registry_value("user_threads", user_threads_table).unwrap();
-    let user_func: mlua::Function = l
-            .load("notafunction()")
+    let mut lua = unsafe { Lua::unsafe_new_with(stdlib, opts) };
+    println!("Without thread:");
+    run_without_thread(&mut lua, script);
+    println!("With thread:");
+    run_with_thread(&mut lua, script);
+}
+
+fn run_without_thread(lua: &mut Lua, script: &str) {
+    dbg!(lua.load(script).set_name("init.lua").unwrap().exec()).ok();
+}
+
+fn run_with_thread(lua: &mut Lua, script: &str) {
+    
+    let user_func: mlua::Function = lua
+            .load(script)
             .set_name("init.lua").unwrap()
             .into_function().unwrap();
 
 
-    let user_thread = l.create_thread(user_func).unwrap();
+    let thread = lua.create_thread(user_func).unwrap();
 
-    let user_threads_table = l.named_registry_value::<_, mlua::Table>("user_threads").unwrap();
-    let new_idx = user_threads_table.raw_len() + 1;
-    user_threads_table.raw_set(new_idx, user_thread).unwrap();
+    dbg!(thread.resume::<_, mlua::Value>(())).ok();
+    let g = lua.globals();
+    let debug = g.get::<_, mlua::Table>("debug").unwrap();
+    let traceback = debug.get::<_, mlua::Function>("traceback").unwrap();
 
-    loop {
-        let thread: mlua::Thread = user_threads_table.raw_get(new_idx).unwrap();
-        dbg!(thread.resume::<_, mlua::Value>(()).unwrap());
-    }
-
+    eprintln!("{}", traceback.call::<_, String>(thread).unwrap());
 }
+
